@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Google Fontsをインラインで読み込む代わりに、スタイルシートで定義します -->
+    <?!= include('styles'); ?>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>YouTube Screenshot & Prompt Generator</h1>
+        <p class="subtitle">Generate Midjourney prompts from YouTube videos</p>
+      </header>
+      
+      <main>
+        <section class="input-section">
+          <div class="card">
+            <h2>Enter YouTube URL</h2>
+            <div class="input-group">
+              <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." />
+              <button id="processButton" class="primary-button">Process</button>
+            </div>
+            <div id="loading" class="loading-spinner hidden">
+              <div class="spinner"></div>
+              <p>Processing your request...</p>
+            </div>
+          </div>
+        </section>
+        
+        <section id="resultSection" class="result-section hidden">
+          <div class="card">
+            <h2>Results</h2>
+            <div class="tabs">
+              <button class="tab-button active" data-tab="screenshot">Screenshot</button>
+              <button class="tab-button" data-tab="prompt">Prompt</button>
+            </div>
+            
+            <div id="screenshotTab" class="tab-content active">
+              <div class="video-info">
+                <h3 id="videoTitle"></h3>
+                <p id="channelTitle"></p>
+              </div>
+              <div class="screenshot-container">
+                <img id="screenshotImage" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjFmM2Y0Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMThweCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgYWxpZ25tZW50LWJhc2VsaW5lPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZmlsbD0iIzlhYTBhNiI+TG9hZGluZyBJbWFnZS4uLjwvdGV4dD48L3N2Zz4=" alt="Video Screenshot" />
+              </div>
+              <div class="action-buttons">
+                <a id="driveLink" href="#" target="_blank" class="secondary-button">View in Drive</a>
+              </div>
+            </div>
+            
+            <div id="promptTab" class="tab-content">
+              <div class="prompt-container">
+                <div class="prompt-card">
+                  <h3>Midjourney Prompt</h3>
+                  <div class="prompt-text-container">
+                    <p id="fullPrompt" class="prompt-text"></p>
+                    <button id="copyPrompt" class="icon-button">
+                      <span id="copyIcon">📋</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <div class="prompt-details">
+                  <div class="prompt-section">
+                    <h4>Main Description</h4>
+                    <p id="mainPrompt"></p>
+                  </div>
+                  <div class="prompt-section">
+                    <h4>Style & Quality</h4>
+                    <p id="stylePrompt"></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <section id="errorSection" class="error-section hidden">
+          <div class="card error-card">
+            <h2>Error</h2>
+            <p id="errorMessage"></p>
+            <button id="tryAgainButton" class="secondary-button">Try Again</button>
+          </div>
+        </section>
+      </main>
+      
+      <footer>
+        <p>Created with Google Apps Script | YouTube Data API | Midjourney</p>
+      </footer>
+    </div>
+    
+    <?!= include('scripts'); ?>
+  </body>
+</html> 

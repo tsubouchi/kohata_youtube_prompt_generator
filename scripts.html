@@ -1,0 +1,174 @@
+<script>
+  // デバッグ用のログ関数
+  function logDebug(message, data) {
+    try {
+      console.log('[DEBUG] ' + message, data || '');
+    } catch (e) {
+      // ログ出力に失敗した場合は無視
+    }
+  }
+
+  // DOM要素
+  const youtubeUrlInput = document.getElementById('youtubeUrl');
+  const processButton = document.getElementById('processButton');
+  const loadingSpinner = document.getElementById('loading');
+  const resultSection = document.getElementById('resultSection');
+  const errorSection = document.getElementById('errorSection');
+  const errorMessage = document.getElementById('errorMessage');
+  const tryAgainButton = document.getElementById('tryAgainButton');
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
+  const videoTitle = document.getElementById('videoTitle');
+  const channelTitle = document.getElementById('channelTitle');
+  const screenshotImage = document.getElementById('screenshotImage');
+  const driveLink = document.getElementById('driveLink');
+  const fullPrompt = document.getElementById('fullPrompt');
+  const mainPrompt = document.getElementById('mainPrompt');
+  const stylePrompt = document.getElementById('stylePrompt');
+  const copyPromptButton = document.getElementById('copyPrompt');
+  const copyIcon = document.getElementById('copyIcon');
+  
+  // イベントリスナー
+  document.addEventListener('DOMContentLoaded', function() {
+    logDebug('DOMContentLoaded イベント発火');
+    
+    // 処理ボタンのクリックイベント
+    processButton.addEventListener('click', processYouTubeUrl);
+    
+    // タブ切り替え
+    tabButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const tabId = this.getAttribute('data-tab');
+        logDebug('タブ切り替え', tabId);
+        
+        // アクティブなタブを更新
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        
+        // タブコンテンツを表示/非表示
+        tabContents.forEach(content => {
+          content.classList.remove('active');
+          if (content.id === tabId + 'Tab') {
+            content.classList.add('active');
+          }
+        });
+      });
+    });
+    
+    // プロンプトコピーボタン
+    copyPromptButton.addEventListener('click', function() {
+      logDebug('コピーボタンがクリックされました');
+      const promptText = fullPrompt.textContent;
+      navigator.clipboard.writeText(promptText).then(function() {
+        // コピー成功時の視覚的フィードバック
+        copyIcon.textContent = '✓';
+        setTimeout(() => {
+          copyIcon.textContent = '📋';
+        }, 2000);
+      }).catch(function(err) {
+        logDebug('クリップボードへのコピーに失敗しました', err);
+      });
+    });
+    
+    // 再試行ボタン
+    tryAgainButton.addEventListener('click', function() {
+      errorSection.classList.add('hidden');
+      youtubeUrlInput.value = '';
+      youtubeUrlInput.focus();
+    });
+  });
+  
+  // YouTube URLを処理する関数
+  function processYouTubeUrl() {
+    const youtubeUrl = youtubeUrlInput.value.trim();
+    logDebug('処理開始: YouTube URL', youtubeUrl);
+    
+    // 入力チェック
+    if (!youtubeUrl) {
+      showError('YouTube URLを入力してください。');
+      return;
+    }
+    
+    // YouTube URLの簡易バリデーション
+    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(.*)$/;
+    if (!youtubeRegex.test(youtubeUrl)) {
+      showError('有効なYouTube URLを入力してください。');
+      return;
+    }
+    
+    // UI状態の更新
+    showLoading();
+    
+    // サーバーサイド関数を呼び出し
+    logDebug('サーバーサイド関数を呼び出します');
+    google.script.run
+      .withSuccessHandler(handleSuccess)
+      .withFailureHandler(handleError)
+      .processYouTubeUrl(youtubeUrl);
+  }
+  
+  // 成功時のコールバック
+  function handleSuccess(result) {
+    logDebug('サーバーサイド処理成功', result);
+    hideLoading();
+    
+    // 結果を表示
+    videoTitle.textContent = result.videoTitle || 'Untitled Video';
+    channelTitle.textContent = result.channelTitle || '';
+    
+    // サムネイル画像を表示
+    if (result.fileId) {
+      // Google Driveの画像表示URL
+      const imageUrl = `https://drive.google.com/uc?export=view&id=${result.fileId}`;
+      logDebug('画像URL', imageUrl);
+      screenshotImage.src = imageUrl;
+      
+      // Drive表示リンク
+      driveLink.href = `https://drive.google.com/file/d/${result.fileId}/view`;
+    }
+    
+    // プロンプトを表示
+    if (result.prompt) {
+      fullPrompt.textContent = result.prompt;
+      
+      // プロンプトを主要部分とスタイル部分に分割（簡易的な実装）
+      const promptParts = result.prompt.split(',');
+      const mainPart = promptParts.slice(0, Math.ceil(promptParts.length / 2)).join(',');
+      const stylePart = promptParts.slice(Math.ceil(promptParts.length / 2)).join(',');
+      
+      mainPrompt.textContent = mainPart;
+      stylePrompt.textContent = stylePart;
+    }
+    
+    // 結果セクションを表示
+    resultSection.classList.remove('hidden');
+  }
+  
+  // エラー時のコールバック
+  function handleError(error) {
+    logDebug('サーバーサイド処理エラー', error);
+    hideLoading();
+    showError(error.message || 'エラーが発生しました。もう一度お試しください。');
+  }
+  
+  // ローディング表示
+  function showLoading() {
+    loadingSpinner.classList.remove('hidden');
+    resultSection.classList.add('hidden');
+    errorSection.classList.add('hidden');
+    processButton.disabled = true;
+  }
+  
+  // ローディング非表示
+  function hideLoading() {
+    loadingSpinner.classList.add('hidden');
+    processButton.disabled = false;
+  }
+  
+  // エラー表示
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorSection.classList.remove('hidden');
+    resultSection.classList.add('hidden');
+  }
+</script> 
