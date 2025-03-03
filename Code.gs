@@ -137,8 +137,8 @@ function generatePromptWithGemini(fileId) {
             text: "この画像を詳細に分析し、Midjourneyで同様の画像を生成するためのプロンプトを作成してください。プロンプトは英語で、主要な被写体、スタイル、色調、照明、構図などの要素を含めてください。"
           },
           {
-            inlineData: {
-              mimeType: "image/jpeg",
+            inline_data: {
+              mime_type: imageBlob.getContentType(),
               data: base64Image
             }
           }
@@ -158,19 +158,32 @@ function generatePromptWithGemini(fileId) {
   try {
     // APIリクエストを送信
     var response = UrlFetchApp.fetch(endpoint, options);
-    var responseData = JSON.parse(response.getContentText());
+    var responseText = response.getContentText();
+    Logger.log("Gemini API Response: " + responseText); // レスポンスの全文をログに記録
     
-    // レスポンスからプロンプトを抽出
-    if (responseData && responseData.candidates && responseData.candidates.length > 0) {
+    var responseData = JSON.parse(responseText);
+    
+    // レスポンスの構造を詳細にログに記録
+    Logger.log("Response structure: " + JSON.stringify(Object.keys(responseData)));
+    
+    // 新しいGemini APIのレスポンス形式に対応
+    if (responseData.candidates && responseData.candidates.length > 0) {
+      Logger.log("Candidates length: " + responseData.candidates.length);
+      Logger.log("First candidate structure: " + JSON.stringify(Object.keys(responseData.candidates[0])));
+      
       var content = responseData.candidates[0].content;
       if (content && content.parts && content.parts.length > 0) {
         return content.parts[0].text;
       }
+    } else if (responseData.error) {
+      // エラーレスポンスの場合
+      Logger.log("API Error: " + JSON.stringify(responseData.error));
+      return "Gemini APIエラー: " + responseData.error.message;
     }
     
     // エラーまたは予期しないレスポンス形式の場合
     Logger.log("Unexpected response format: " + JSON.stringify(responseData));
-    return "APIからの応答を解析できませんでした。";
+    return "APIからの応答を解析できませんでした。詳細はログを確認してください。";
   } catch (error) {
     Logger.log("Error calling Gemini API: " + error);
     return "Gemini APIの呼び出し中にエラーが発生しました: " + error.toString();

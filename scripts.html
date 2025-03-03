@@ -171,4 +171,41 @@
     errorSection.classList.remove('hidden');
     resultSection.classList.add('hidden');
   }
+
+  function generatePromptWithGemini(fileId) {
+    // ... 既存のコード ...
+    
+    try {
+      // APIリクエストを送信
+      var response = UrlFetchApp.fetch(endpoint, options);
+      var responseText = response.getContentText();
+      Logger.log("Gemini API Response: " + responseText); // レスポンスの全文をログに記録
+      
+      var responseData = JSON.parse(responseText);
+      
+      // レスポンスの構造を詳細にログに記録
+      Logger.log("Response structure: " + JSON.stringify(Object.keys(responseData)));
+      if (responseData.candidates) {
+        Logger.log("Candidates length: " + responseData.candidates.length);
+        if (responseData.candidates.length > 0) {
+          Logger.log("First candidate structure: " + JSON.stringify(Object.keys(responseData.candidates[0])));
+        }
+      }
+      
+      // レスポンスからプロンプトを抽出
+      if (responseData && responseData.candidates && responseData.candidates.length > 0) {
+        var content = responseData.candidates[0].content;
+        if (content && content.parts && content.parts.length > 0) {
+          return content.parts[0].text;
+        }
+      }
+      
+      // エラーまたは予期しないレスポンス形式の場合
+      Logger.log("Unexpected response format: " + JSON.stringify(responseData));
+      return "APIからの応答を解析できませんでした。詳細はログを確認してください。";
+    } catch (error) {
+      Logger.log("Error calling Gemini API: " + error);
+      return "Gemini APIの呼び出し中にエラーが発生しました: " + error.toString();
+    }
+  }
 </script> 
