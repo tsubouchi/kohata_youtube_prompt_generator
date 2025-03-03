@@ -4,25 +4,24 @@
     <base target="_top">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Google Fontsをインラインで読み込む代わりに、スタイルシートで定義します -->
+    <!-- スタイルシートを読み込み -->
     <?!= include('styles'); ?>
   </head>
   <body>
     <div class="container">
       <header>
-        <h1>YouTube サムネイル＆プロンプトジェネレーター</h1>
-        <p class="subtitle">YouTubeの動画からMidjourneyプロンプトを生成</p>
+        <h1>YouTube to Midjourney プロンプトジェネレーター</h1>
       </header>
       
       <main>
         <section class="input-section">
           <div class="card">
-            <h2>YouTube URLを入力</h2>
+            <h2>YouTube 動画 URL</h2>
             <div class="input-group">
-              <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." />
-              <button id="processButton" class="primary-button">処理開始</button>
+              <input type="text" id="urlInput" placeholder="https://www.youtube.com/watch?v=..." />
+              <button id="analyzeButton" class="primary-button">Midjourney プロンプトを生成 →</button>
             </div>
-            <div id="loading" class="loading-spinner hidden">
+            <div id="loadingSpinner" class="loading-spinner hidden">
               <div class="spinner"></div>
               <p>処理中...</p>
             </div>
@@ -31,44 +30,35 @@
         
         <section id="resultSection" class="result-section hidden">
           <div class="card">
-            <h2>結果</h2>
-            <div class="video-info">
-              <h3 id="videoTitle"></h3>
-              <p id="channelTitle"></p>
-            </div>
+            <h2 id="videoTitle">動画タイトル</h2>
+            <p id="channelTitle" class="channel-title"></p>
             
             <div class="result-container">
               <!-- 左側：サムネイル画像 -->
               <div class="result-left">
+                <h3>スクリーンショット</h3>
                 <div class="screenshot-container">
-                  <img id="screenshotImage" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjFmM2Y0Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMThweCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgYWxpZ25tZW50LWJhc2VsaW5lPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZmlsbD0iIzlhYTBhNiI+画像読み込み中...</vdGV4dD48L3N2Zz4=" alt="サムネイル画像" />
+                  <img id="screenshotImage" src="data:image/svg+xml,%3Csvg width='320' height='180' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='0' y='0' width='100%25' height='100%25' fill='%23f1f3f4'/%3E%3Ctext x='50%25' y='50%25' font-size='18px' text-anchor='middle' alignment-baseline='middle' font-family='Arial, sans-serif' fill='%239aa0a6'%3ELoading...%3C/text%3E%3C/svg%3E" alt="サムネイル画像" />
                 </div>
                 <div class="action-buttons">
-                  <a id="driveLink" href="#" target="_blank" class="secondary-button">Driveで表示</a>
+                  <a id="driveLink" href="#" target="_blank" class="secondary-button">
+                    <span class="button-icon">📁</span> ドライブで表示
+                  </a>
+                  <a id="spreadsheetLink" href="#" target="_blank" class="secondary-button">
+                    <span class="button-icon">📊</span> スプレッドシートを開く
+                  </a>
                 </div>
               </div>
               
               <!-- 右側：プロンプト -->
               <div class="result-right">
-                <div class="prompt-card">
-                  <h3>Midjourneyプロンプト</h3>
-                  <div class="prompt-text-container">
-                    <p id="fullPrompt" class="prompt-text"></p>
-                    <button id="copyPrompt" class="icon-button">
-                      <span id="copyIcon">📋</span>
-                    </button>
-                  </div>
-                </div>
-                
-                <div class="prompt-details">
-                  <div class="prompt-section">
-                    <h4>主要な説明</h4>
-                    <p id="mainPrompt"></p>
-                  </div>
-                  <div class="prompt-section">
-                    <h4>スタイルと品質</h4>
-                    <p id="stylePrompt"></p>
-                  </div>
+                <h3>Midjourney プロンプト</h3>
+                <p class="prompt-note">※プロンプトは英語で生成されます</p>
+                <div class="prompt-text-container">
+                  <p id="promptText" class="prompt-text"></p>
+                  <button id="copyButton" class="copy-button">
+                    <span class="button-icon">📋</span> Midjourney プロンプトをコピー
+                  </button>
                 </div>
               </div>
             </div>
@@ -85,7 +75,7 @@
       </main>
       
       <footer>
-        <p>Google Apps Script | YouTube Data API | Gemini 1.5 Flash | Midjourney</p>
+        <p>Google Apps Script | YouTube Data API | Gemini 2.0 Flash | Midjourney</p>
       </footer>
     </div>
     

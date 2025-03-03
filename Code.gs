@@ -5,7 +5,7 @@
 function doGet(e) {
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
-    .setTitle('YouTube Thumbnail & Prompt Generator');
+    .setTitle('YouTube to Midjourney プロンプトジェネレーター');
 }
 
 /**
@@ -23,68 +23,90 @@ function include(filename) {
  * 4. Gemini 2.0 flash (LLM)を用いたプロンプト生成
  * 5. スプレッドシートに書き込み
  */
-function processYouTubeUrl(youtubeUrl) {
-  // APIキーを取得
-  const apiKeys = getApiKeys();
-  
-  // 1. 動画IDを抽出
-  var videoId = extractVideoId(youtubeUrl);
-  if (!videoId) {
-    throw new Error("YouTube URLから動画IDを取得できませんでした。");
-  }
-  
-  // 2. YouTube Data APIで動画情報を取得 (snippet)
-  var videoResponse;
-  
-  // Advanced ServiceとAPIキーの両方に対応
+function analyzeYouTubeVideo(youtubeUrl) {
   try {
-    // まずAdvanced Serviceを試す
-    videoResponse = YouTube.Videos.list('snippet', { id: videoId });
-  } catch (e) {
-    // Advanced Serviceが使えない場合はAPIキーを使用
-    if (apiKeys.youtubeApiKey) {
-      var apiUrl = 'https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' + videoId + '&key=' + apiKeys.youtubeApiKey;
-      var response = UrlFetchApp.fetch(apiUrl);
-      videoResponse = JSON.parse(response.getContentText());
-    } else {
-      throw new Error("YouTube Data APIの呼び出しに失敗しました。APIキーが設定されていません。");
+    Logger.log("YouTube URL分析開始: " + youtubeUrl);
+    
+    // APIキーを取得
+    const apiKeys = getApiKeys();
+    
+    // 1. 動画IDを抽出
+    var videoId = extractVideoId(youtubeUrl);
+    if (!videoId) {
+      throw new Error("YouTube URLから動画IDを取得できませんでした。");
     }
+    
+    Logger.log("抽出した動画ID: " + videoId);
+    
+    // 2. YouTube Data APIで動画情報を取得 (snippet)
+    var videoResponse;
+    
+    // Advanced ServiceとAPIキーの両方に対応
+    try {
+      // まずAdvanced Serviceを試す
+      videoResponse = YouTube.Videos.list('snippet', { id: videoId });
+    } catch (e) {
+      Logger.log("Advanced Service失敗、APIキーを使用: " + e);
+      // Advanced Serviceが使えない場合はAPIキーを使用
+      if (apiKeys.youtubeApiKey) {
+        var apiUrl = 'https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' + videoId + '&key=' + apiKeys.youtubeApiKey;
+        var response = UrlFetchApp.fetch(apiUrl);
+        videoResponse = JSON.parse(response.getContentText());
+      } else {
+        throw new Error("YouTube Data APIの呼び出しに失敗しました。APIキーが設定されていません。");
+      }
+    }
+    
+    if (!videoResponse || !videoResponse.items || videoResponse.items.length === 0) {
+      throw new Error("動画情報が見つかりません。videoId: " + videoId);
+    }
+    
+    var snippet = videoResponse.items[0].snippet;
+    var thumbnails = snippet.thumbnails;
+    
+    // サムネイルURL (maxres があればそれを使う、なければ high)
+    var thumbnailUrl = thumbnails.maxres ? thumbnails.maxres.url : thumbnails.high.url;
+    
+    Logger.log("サムネイルURL: " + thumbnailUrl);
+    
+    // 3. サムネイルをDriveに保存
+    var fileId = saveImageToDrive(thumbnailUrl, videoId + "_thumbnail.jpg");
+    Logger.log("保存したファイルID: " + fileId);
+    
+    // 4. Gemini 2.0 flash (LLM)でプロンプトを生成
+    var prompt = generatePromptWithGemini(fileId);
+    
+    // 5. スプレッドシートに書き込み
+    var spreadsheetId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+    var ss = SpreadsheetApp.openById(spreadsheetId);
+    var sheet = ss.getSheetByName("YouTubePrompts");
+    sheet.appendRow([
+      new Date(),       // Timestamp
+      youtubeUrl,       // 入力URL
+      fileId,           // Drive File ID
+      prompt            // LLMで生成したプロンプト
+    ]);
+    
+    // 6. Webアプリに返却
+    // Base64エンコードされた画像を直接返す
+    var file = DriveApp.getFileById(fileId);
+    var imageBlob = file.getBlob();
+    var base64Image = "data:" + imageBlob.getContentType() + ";base64," + Utilities.base64Encode(imageBlob.getBytes());
+    
+    return {
+      title: snippet.title,
+      channelTitle: snippet.channelTitle || snippet.channelName,
+      screenshot: base64Image,
+      prompt: prompt,
+      driveLink: "https://drive.google.com/file/d/" + fileId + "/view",
+      spreadsheetLink: "https://docs.google.com/spreadsheets/d/" + spreadsheetId + "/edit"
+    };
+  } catch (error) {
+    Logger.log("エラー発生: " + error);
+    return {
+      error: error.toString()
+    };
   }
-  
-  if (!videoResponse || !videoResponse.items || videoResponse.items.length === 0) {
-    throw new Error("動画情報が見つかりません。videoId: " + videoId);
-  }
-  
-  var snippet = videoResponse.items[0].snippet;
-  var thumbnails = snippet.thumbnails;
-  
-  // サムネイルURL (maxres があればそれを使う、なければ high)
-  var thumbnailUrl = thumbnails.maxres ? thumbnails.maxres.url : thumbnails.high.url;
-  
-  // 3. サムネイルをDriveに保存
-  var fileId = saveImageToDrive(thumbnailUrl, videoId + "_thumbnail.jpg");
-  
-  // 4. Gemini 2.0 flash (LLM)でプロンプトを生成
-  var prompt = generatePromptWithGemini(fileId);
-  
-  // 5. スプレッドシートに書き込み
-  var spreadsheetId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
-  var ss = SpreadsheetApp.openById(spreadsheetId);
-  var sheet = ss.getSheetByName("YouTubePrompts");
-  sheet.appendRow([
-    new Date(),       // Timestamp
-    youtubeUrl,       // 入力URL
-    fileId,           // Drive File ID
-    prompt            // LLMで生成したプロンプト
-  ]);
-  
-  // 6. Webアプリに返却
-  return {
-    videoTitle: snippet.title,
-    channelTitle: snippet.channelTitle || snippet.channelName,
-    fileId: fileId,
-    prompt: prompt
-  };
 }
 
 /**
@@ -125,8 +147,8 @@ function generatePromptWithGemini(fileId) {
   // APIキーを取得
   var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   
-  // Gemini APIのエンドポイント（gemini-1.5-flashモデルを使用）
-  var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+  // Gemini APIのエンドポイント
+  var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey;
   
   // リクエストボディの作成
   var requestBody = {
@@ -201,36 +223,12 @@ function getApiKeys() {
   };
 }
 
-/**
- * YouTube URLからサムネイルを取得する関数
- */
-function getYouTubeThumbnail(videoUrl) {
-  // YouTube URLからビデオIDを抽出
-  const videoId = extractVideoId(videoUrl);
-  if (!videoId) {
-    throw new Error('Invalid YouTube URL');
-  }
-
-  const apiKey = PropertiesService.getScriptProperties().getProperty('YOUTUBE_API_KEY');
-  const apiUrl = "https://www.googleapis.com/youtube/v3/videos?id=" + videoId + "&key=" + apiKey + "&part=snippet";
-
-  try {
-    const response = UrlFetchApp.fetch(apiUrl);
-    const data = JSON.parse(response.getContentText());
-
-    if (data.items && data.items.length > 0) {
-      // 高解像度のサムネイルを取得
-      return data.items[0].snippet.thumbnails.high.url;
-    } else {
-      throw new Error('Video not found');
-    }
-  } catch (error) {
-    Logger.log('Error fetching thumbnail: ' + error);
-    throw error;
-  }
+// 古い関数は互換性のために残しておく
+function processYouTubeUrl(youtubeUrl) {
+  Logger.log('警告: processYouTubeUrl()は非推奨です。代わりにanalyzeYouTubeVideo()を使用してください。');
+  return analyzeYouTubeVideo(youtubeUrl);
 }
 
-// 古い環境変数取得関数は削除または非推奨化
 /**
  * .envファイルから環境変数を読み込む (非推奨)
  * @deprecated スクリプトプロパティを使用してください

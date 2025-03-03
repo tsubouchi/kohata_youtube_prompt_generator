@@ -9,181 +9,163 @@
   }
 
   // DOM要素
-  const youtubeUrlInput = document.getElementById('youtubeUrl');
-  const processButton = document.getElementById('processButton');
-  const loadingSpinner = document.getElementById('loading');
-  const resultSection = document.getElementById('resultSection');
-  const errorSection = document.getElementById('errorSection');
-  const errorMessage = document.getElementById('errorMessage');
-  const tryAgainButton = document.getElementById('tryAgainButton');
-  const videoTitle = document.getElementById('videoTitle');
-  const channelTitle = document.getElementById('channelTitle');
-  const screenshotImage = document.getElementById('screenshotImage');
-  const driveLink = document.getElementById('driveLink');
-  const fullPrompt = document.getElementById('fullPrompt');
-  const mainPrompt = document.getElementById('mainPrompt');
-  const stylePrompt = document.getElementById('stylePrompt');
-  const copyPromptButton = document.getElementById('copyPrompt');
-  const copyIcon = document.getElementById('copyIcon');
+  let urlInput;
+  let analyzeButton;
+  let loadingSpinner;
+  let resultSection;
+  let errorSection;
+  let errorMessage;
+  let screenshotImage;
+  let promptText;
+  let copyButton;
+  let channelTitle;
   
-  // イベントリスナー
-  document.addEventListener('DOMContentLoaded', function() {
-    logDebug('DOMContentLoaded イベント発火');
+  // 初期化関数
+  function onPageLoad() {
+    // DOM要素の取得
+    urlInput = document.getElementById('urlInput');
+    analyzeButton = document.getElementById('analyzeButton');
+    loadingSpinner = document.getElementById('loadingSpinner');
+    resultSection = document.getElementById('resultSection');
+    errorSection = document.getElementById('errorSection');
+    errorMessage = document.getElementById('errorMessage');
+    screenshotImage = document.getElementById('screenshotImage');
+    promptText = document.getElementById('promptText');
+    copyButton = document.getElementById('copyButton');
+    channelTitle = document.getElementById('channelTitle');
     
-    // 処理ボタンのクリックイベント
-    processButton.addEventListener('click', processYouTubeUrl);
+    // イベントリスナーの設定
+    analyzeButton.addEventListener('click', handleAnalyzeClick);
+    copyButton.addEventListener('click', copyPromptToClipboard);
     
-    // プロンプトコピーボタン
-    copyPromptButton.addEventListener('click', function() {
-      logDebug('コピーボタンがクリックされました');
-      const promptText = fullPrompt.textContent;
-      navigator.clipboard.writeText(promptText).then(function() {
-        // コピー成功時の視覚的フィードバック
-        copyIcon.textContent = '✓';
-        setTimeout(() => {
-          copyIcon.textContent = '📋';
-        }, 2000);
-      }).catch(function(err) {
-        logDebug('クリップボードへのコピーに失敗しました', err);
-      });
-    });
-    
-    // 再試行ボタン
-    tryAgainButton.addEventListener('click', function() {
-      errorSection.classList.add('hidden');
-      youtubeUrlInput.value = '';
-      youtubeUrlInput.focus();
-    });
-  });
+    // URLパラメータからURLを取得して自動分析
+    const urlParams = new URLSearchParams(window.location.search);
+    const youtubeUrl = urlParams.get('url');
+    if (youtubeUrl) {
+      urlInput.value = youtubeUrl;
+      handleAnalyzeClick();
+    }
+  }
   
-  // YouTube URLを処理する関数
-  function processYouTubeUrl() {
-    const youtubeUrl = youtubeUrlInput.value.trim();
-    logDebug('処理開始: YouTube URL', youtubeUrl);
+  // 分析ボタンクリック時の処理
+  function handleAnalyzeClick() {
+    const url = urlInput.value.trim();
     
-    // 入力チェック
-    if (!youtubeUrl) {
-      showError('YouTube URLを入力してください。');
+    if (!url) {
+      showError('URLを入力してください。');
       return;
     }
     
-    // YouTube URLの簡易バリデーション
-    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(.*)$/;
-    if (!youtubeRegex.test(youtubeUrl)) {
+    if (!isValidYouTubeUrl(url)) {
       showError('有効なYouTube URLを入力してください。');
       return;
     }
     
     // UI状態の更新
     showLoading();
+    hideError();
+    hideResults();
     
-    // サーバーサイド関数を呼び出し
-    logDebug('サーバーサイド関数を呼び出します');
+    // サーバーサイド関数の呼び出し
     google.script.run
-      .withSuccessHandler(handleSuccess)
-      .withFailureHandler(handleError)
-      .processYouTubeUrl(youtubeUrl);
+      .withSuccessHandler(handleAnalysisSuccess)
+      .withFailureHandler(handleAnalysisError)
+      .analyzeYouTubeVideo(url);
   }
   
-  // 成功時のコールバック
-  function handleSuccess(result) {
-    logDebug('サーバーサイド処理成功', result);
+  // 分析成功時の処理
+  function handleAnalysisSuccess(result) {
     hideLoading();
     
-    // 結果を表示
-    videoTitle.textContent = result.videoTitle || 'タイトルなし';
-    channelTitle.textContent = result.channelTitle || '';
-    
-    // サムネイル画像を表示
-    if (result.fileId) {
-      // Google Driveの画像表示URL（文字列連結を使用）
-      const imageUrl = "https://drive.google.com/uc?export=view&id=" + result.fileId;
-      logDebug('画像URL', imageUrl);
-      screenshotImage.src = imageUrl;
-      
-      // Drive表示リンク（文字列連結を使用）
-      driveLink.href = "https://drive.google.com/file/d/" + result.fileId + "/view";
+    if (result.error) {
+      showError(result.error);
+      return;
     }
     
-    // プロンプトを表示
-    if (result.prompt) {
-      fullPrompt.textContent = result.prompt;
-      
-      // プロンプトを主要部分とスタイル部分に分割（簡易的な実装）
-      const promptParts = result.prompt.split(',');
-      const mainPart = promptParts.slice(0, Math.ceil(promptParts.length / 2)).join(',');
-      const stylePart = promptParts.slice(Math.ceil(promptParts.length / 2)).join(',');
-      
-      mainPrompt.textContent = mainPart;
-      stylePrompt.textContent = stylePart;
+    // スクリーンショットの表示
+    screenshotImage.src = result.screenshot;
+    screenshotImage.alt = result.title || 'YouTube動画のスクリーンショット';
+    
+    // プロンプトの表示
+    promptText.textContent = result.prompt || '';
+    
+    // チャンネル名の表示
+    if (result.channelTitle) {
+      channelTitle.textContent = 'チャンネル: ' + result.channelTitle;
+      channelTitle.classList.remove('hidden');
+    } else {
+      channelTitle.classList.add('hidden');
     }
     
-    // 結果セクションを表示
+    // 結果セクションの表示
+    showResults();
+  }
+  
+  // 分析エラー時の処理
+  function handleAnalysisError(error) {
+    hideLoading();
+    showError('分析中にエラーが発生しました: ' + error.message);
+    console.error('分析エラー:', error);
+  }
+  
+  // プロンプトをクリップボードにコピー
+  function copyPromptToClipboard() {
+    const textToCopy = promptText.textContent;
+    
+    if (!textToCopy) {
+      return;
+    }
+    
+    // クリップボードAPIを使用してコピー
+    navigator.clipboard.writeText(textToCopy)
+      .then(() => {
+        // コピー成功時の表示
+        const originalText = copyButton.textContent;
+        copyButton.textContent = 'コピーしました！';
+        
+        setTimeout(() => {
+          copyButton.textContent = originalText;
+        }, 2000);
+      })
+      .catch(err => {
+        console.error('クリップボードへのコピーに失敗しました:', err);
+      });
+  }
+  
+  // YouTube URLの検証
+  function isValidYouTubeUrl(url) {
+    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
+    return youtubeRegex.test(url);
+  }
+  
+  // UI表示制御関数
+  function showLoading() {
+    loadingSpinner.classList.remove('hidden');
+    analyzeButton.disabled = true;
+  }
+  
+  function hideLoading() {
+    loadingSpinner.classList.add('hidden');
+    analyzeButton.disabled = false;
+  }
+  
+  function showResults() {
     resultSection.classList.remove('hidden');
   }
   
-  // エラー時のコールバック
-  function handleError(error) {
-    logDebug('サーバーサイド処理エラー', error);
-    hideLoading();
-    showError(error.message || 'エラーが発生しました。もう一度お試しください。');
-  }
-  
-  // ローディング表示
-  function showLoading() {
-    loadingSpinner.classList.remove('hidden');
+  function hideResults() {
     resultSection.classList.add('hidden');
-    errorSection.classList.add('hidden');
-    processButton.disabled = true;
   }
   
-  // ローディング非表示
-  function hideLoading() {
-    loadingSpinner.classList.add('hidden');
-    processButton.disabled = false;
-  }
-  
-  // エラー表示
   function showError(message) {
-    errorMessage.textContent = message;
     errorSection.classList.remove('hidden');
-    resultSection.classList.add('hidden');
+    errorMessage.textContent = message;
   }
-
-  function generatePromptWithGemini(fileId) {
-    // ... 既存のコード ...
-    
-    try {
-      // APIリクエストを送信
-      var response = UrlFetchApp.fetch(endpoint, options);
-      var responseText = response.getContentText();
-      Logger.log("Gemini API Response: " + responseText); // レスポンスの全文をログに記録
-      
-      var responseData = JSON.parse(responseText);
-      
-      // レスポンスの構造を詳細にログに記録
-      Logger.log("Response structure: " + JSON.stringify(Object.keys(responseData)));
-      if (responseData.candidates) {
-        Logger.log("Candidates length: " + responseData.candidates.length);
-        if (responseData.candidates.length > 0) {
-          Logger.log("First candidate structure: " + JSON.stringify(Object.keys(responseData.candidates[0])));
-        }
-      }
-      
-      // レスポンスからプロンプトを抽出
-      if (responseData && responseData.candidates && responseData.candidates.length > 0) {
-        var content = responseData.candidates[0].content;
-        if (content && content.parts && content.parts.length > 0) {
-          return content.parts[0].text;
-        }
-      }
-      
-      // エラーまたは予期しないレスポンス形式の場合
-      Logger.log("Unexpected response format: " + JSON.stringify(responseData));
-      return "APIからの応答を解析できませんでした。詳細はログを確認してください。";
-    } catch (error) {
-      Logger.log("Error calling Gemini API: " + error);
-      return "Gemini APIの呼び出し中にエラーが発生しました: " + error.toString();
-    }
+  
+  function hideError() {
+    errorSection.classList.add('hidden');
   }
+  
+  // ページ読み込み時に初期化
+  window.addEventListener('load', onPageLoad);
 </script> 
