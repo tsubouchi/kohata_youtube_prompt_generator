@@ -24,8 +24,8 @@ function include(filename) {
  * 5. スプレッドシートに書き込み
  */
 function processYouTubeUrl(youtubeUrl) {
-  // 環境変数を読み込む
-  const env = getEnvironmentVariables();
+  // APIキーを取得
+  const apiKeys = getApiKeys();
   
   // 1. 動画IDを抽出
   var videoId = extractVideoId(youtubeUrl);
@@ -42,8 +42,8 @@ function processYouTubeUrl(youtubeUrl) {
     videoResponse = YouTube.Videos.list('snippet', { id: videoId });
   } catch (e) {
     // Advanced Serviceが使えない場合はAPIキーを使用
-    if (env.YOUTUBE_API_KEY) {
-      var apiUrl = 'https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' + videoId + '&key=' + env.YOUTUBE_API_KEY;
+    if (apiKeys.youtubeApiKey) {
+      var apiUrl = 'https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' + videoId + '&key=' + apiKeys.youtubeApiKey;
       var response = UrlFetchApp.fetch(apiUrl);
       videoResponse = JSON.parse(response.getContentText());
     } else {
@@ -65,10 +65,11 @@ function processYouTubeUrl(youtubeUrl) {
   var fileId = saveImageToDrive(thumbnailUrl, videoId + "_thumbnail.jpg");
   
   // 4. Gemini 2.0 flash (LLM)でプロンプトを生成
-  var prompt = generatePromptWithGemini(fileId, env.GEMINI_API_KEY);
+  var prompt = generatePromptWithGemini(fileId);
   
   // 5. スプレッドシートに書き込み
-  var ss = SpreadsheetApp.openById(env.SPREADSHEET_ID);
+  var spreadsheetId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  var ss = SpreadsheetApp.openById(spreadsheetId);
   var sheet = ss.getSheetByName("YouTubePrompts");
   sheet.appendRow([
     new Date(),       // Timestamp
@@ -102,9 +103,9 @@ function saveImageToDrive(imageUrl, fileName) {
   var response = UrlFetchApp.fetch(imageUrl);
   var blob = response.getBlob().setName(fileName);
   
-  // 環境変数からフォルダIDを取得
-  const env = getEnvironmentVariables();
-  var folder = DriveApp.getFolderById(env.FOLDER_ID);
+  // スクリプトプロパティからフォルダIDを取得
+  var folderId = PropertiesService.getScriptProperties().getProperty('FOLDER_ID');
+  var folder = DriveApp.getFolderById(folderId);
   var file = folder.createFile(blob);
   return file.getId();
 }
@@ -113,7 +114,7 @@ function saveImageToDrive(imageUrl, fileName) {
  * Gemini 2.0 flash LLMでプロンプト生成
  * 画像ファイルIDを使用してGemini APIにリクエストを送信
  */
-function generatePromptWithGemini(fileId, apiKey) {
+function generatePromptWithGemini(fileId) {
   // Driveから画像を取得
   var file = DriveApp.getFileById(fileId);
   var imageBlob = file.getBlob();
@@ -121,8 +122,11 @@ function generatePromptWithGemini(fileId, apiKey) {
   // 画像をBase64エンコード
   var base64Image = Utilities.base64Encode(imageBlob.getBytes());
   
+  // APIキーを取得
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  
   // Gemini APIのエンドポイント
-  var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent";
+  var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=" + apiKey;
   
   // リクエストボディの作成
   var requestBody = {
@@ -146,10 +150,7 @@ function generatePromptWithGemini(fileId, apiKey) {
   // APIリクエストのオプション
   var options = {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": apiKey
-    },
+    contentType: "application/json",
     payload: JSON.stringify(requestBody),
     muteHttpExceptions: true
   };
@@ -177,46 +178,58 @@ function generatePromptWithGemini(fileId, apiKey) {
 }
 
 /**
- * .envファイルから環境変数を読み込む
+ * スクリプトプロパティからAPIキーを取得する関数
+ */
+function getApiKeys() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  return {
+    youtubeApiKey: scriptProperties.getProperty('YOUTUBE_API_KEY'),
+    geminiApiKey: scriptProperties.getProperty('GEMINI_API_KEY')
+  };
+}
+
+/**
+ * YouTube URLからサムネイルを取得する関数
+ */
+function getYouTubeThumbnail(videoUrl) {
+  // YouTube URLからビデオIDを抽出
+  const videoId = extractVideoId(videoUrl);
+  if (!videoId) {
+    throw new Error('Invalid YouTube URL');
+  }
+
+  const apiKey = PropertiesService.getScriptProperties().getProperty('YOUTUBE_API_KEY');
+  const apiUrl = "https://www.googleapis.com/youtube/v3/videos?id=" + videoId + "&key=" + apiKey + "&part=snippet";
+
+  try {
+    const response = UrlFetchApp.fetch(apiUrl);
+    const data = JSON.parse(response.getContentText());
+
+    if (data.items && data.items.length > 0) {
+      // 高解像度のサムネイルを取得
+      return data.items[0].snippet.thumbnails.high.url;
+    } else {
+      throw new Error('Video not found');
+    }
+  } catch (error) {
+    Logger.log('Error fetching thumbnail: ' + error);
+    throw error;
+  }
+}
+
+// 古い環境変数取得関数は削除または非推奨化
+/**
+ * .envファイルから環境変数を読み込む (非推奨)
+ * @deprecated スクリプトプロパティを使用してください
  */
 function getEnvironmentVariables() {
-  try {
-    // .envファイルを取得
-    var files = DriveApp.getFilesByName('.env');
-    if (!files.hasNext()) {
-      throw new Error('.envファイルが見つかりません。');
-    }
-    
-    var file = files.next();
-    var content = file.getBlob().getDataAsString();
-    
-    // 環境変数をパース
-    var env = {};
-    content.split('\n').forEach(function(line) {
-      if (line.trim() && !line.startsWith('#')) {
-        var parts = line.split('=');
-        if (parts.length >= 2) {
-          var key = parts[0].trim();
-          var value = parts.slice(1).join('=').trim();
-          // 引用符を削除
-          if ((value.startsWith('"') && value.endsWith('"')) || 
-              (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.substring(1, value.length - 1);
-          }
-          env[key] = value;
-        }
-      }
-    });
-    
-    return env;
-  } catch (error) {
-    Logger.log('環境変数の読み込みエラー: ' + error);
-    // デフォルト値を返す
-    return {
-      SPREADSHEET_ID: '',
-      FOLDER_ID: '',
-      YOUTUBE_API_KEY: '',
-      GEMINI_API_KEY: ''
-    };
-  }
+  Logger.log('警告: getEnvironmentVariables()は非推奨です。代わりにPropertiesService.getScriptProperties()を使用してください。');
+  // スクリプトプロパティから値を取得して互換性を保つ
+  const scriptProperties = PropertiesService.getScriptProperties();
+  return {
+    SPREADSHEET_ID: scriptProperties.getProperty('SPREADSHEET_ID') || '',
+    FOLDER_ID: scriptProperties.getProperty('FOLDER_ID') || '',
+    YOUTUBE_API_KEY: scriptProperties.getProperty('YOUTUBE_API_KEY') || '',
+    GEMINI_API_KEY: scriptProperties.getProperty('GEMINI_API_KEY') || ''
+  };
 } 
