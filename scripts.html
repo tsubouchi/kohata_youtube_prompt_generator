@@ -16,8 +16,6 @@
   const errorSection = document.getElementById('errorSection');
   const errorMessage = document.getElementById('errorMessage');
   const tryAgainButton = document.getElementById('tryAgainButton');
-  const tabButtons = document.querySelectorAll('.tab-button');
-  const tabContents = document.querySelectorAll('.tab-content');
   const videoTitle = document.getElementById('videoTitle');
   const channelTitle = document.getElementById('channelTitle');
   const screenshotImage = document.getElementById('screenshotImage');
@@ -34,26 +32,6 @@
     
     // 処理ボタンのクリックイベント
     processButton.addEventListener('click', processYouTubeUrl);
-    
-    // タブ切り替え
-    tabButtons.forEach(button => {
-      button.addEventListener('click', function() {
-        const tabId = this.getAttribute('data-tab');
-        logDebug('タブ切り替え', tabId);
-        
-        // アクティブなタブを更新
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        this.classList.add('active');
-        
-        // タブコンテンツを表示/非表示
-        tabContents.forEach(content => {
-          content.classList.remove('active');
-          if (content.id === tabId + 'Tab') {
-            content.classList.add('active');
-          }
-        });
-      });
-    });
     
     // プロンプトコピーボタン
     copyPromptButton.addEventListener('click', function() {
@@ -113,18 +91,18 @@
     hideLoading();
     
     // 結果を表示
-    videoTitle.textContent = result.videoTitle || 'Untitled Video';
+    videoTitle.textContent = result.videoTitle || 'タイトルなし';
     channelTitle.textContent = result.channelTitle || '';
     
     // サムネイル画像を表示
     if (result.fileId) {
-      // Google Driveの画像表示URL
-      const imageUrl = `https://drive.google.com/uc?export=view&id=${result.fileId}`;
+      // Google Driveの画像表示URL（文字列連結を使用）
+      const imageUrl = "https://drive.google.com/uc?export=view&id=" + result.fileId;
       logDebug('画像URL', imageUrl);
       screenshotImage.src = imageUrl;
       
-      // Drive表示リンク
-      driveLink.href = `https://drive.google.com/file/d/${result.fileId}/view`;
+      // Drive表示リンク（文字列連結を使用）
+      driveLink.href = "https://drive.google.com/file/d/" + result.fileId + "/view";
     }
     
     // プロンプトを表示

@@ -312,4 +312,31 @@
       font-size: 2rem;
     }
   }
+  
+  /* Results Section - 新しいレイアウト */
+  .result-container {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    margin-top: 20px;
+  }
+  
+  .result-left {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .result-right {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  @media (max-width: 768px) {
+    .result-container {
+      flex-direction: column;
+    }
+  }
 </style> 

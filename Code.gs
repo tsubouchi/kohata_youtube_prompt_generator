@@ -125,8 +125,8 @@ function generatePromptWithGemini(fileId) {
   // APIキーを取得
   var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   
-  // Gemini APIのエンドポイント
-  var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=" + apiKey;
+  // Gemini APIのエンドポイント（gemini-1.5-flashモデルを使用）
+  var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
   
   // リクエストボディの作成
   var requestBody = {

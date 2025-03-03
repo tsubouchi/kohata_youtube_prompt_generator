@@ -10,50 +10,48 @@
   <body>
     <div class="container">
       <header>
-        <h1>YouTube Screenshot & Prompt Generator</h1>
-        <p class="subtitle">Generate Midjourney prompts from YouTube videos</p>
+        <h1>YouTube サムネイル＆プロンプトジェネレーター</h1>
+        <p class="subtitle">YouTubeの動画からMidjourneyプロンプトを生成</p>
       </header>
       
       <main>
         <section class="input-section">
           <div class="card">
-            <h2>Enter YouTube URL</h2>
+            <h2>YouTube URLを入力</h2>
             <div class="input-group">
               <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." />
-              <button id="processButton" class="primary-button">Process</button>
+              <button id="processButton" class="primary-button">処理開始</button>
             </div>
             <div id="loading" class="loading-spinner hidden">
               <div class="spinner"></div>
-              <p>Processing your request...</p>
+              <p>処理中...</p>
             </div>
           </div>
         </section>
         
         <section id="resultSection" class="result-section hidden">
           <div class="card">
-            <h2>Results</h2>
-            <div class="tabs">
-              <button class="tab-button active" data-tab="screenshot">Screenshot</button>
-              <button class="tab-button" data-tab="prompt">Prompt</button>
+            <h2>結果</h2>
+            <div class="video-info">
+              <h3 id="videoTitle"></h3>
+              <p id="channelTitle"></p>
             </div>
             
-            <div id="screenshotTab" class="tab-content active">
-              <div class="video-info">
-                <h3 id="videoTitle"></h3>
-                <p id="channelTitle"></p>
+            <div class="result-container">
+              <!-- 左側：サムネイル画像 -->
+              <div class="result-left">
+                <div class="screenshot-container">
+                  <img id="screenshotImage" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjFmM2Y0Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMThweCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgYWxpZ25tZW50LWJhc2VsaW5lPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZmlsbD0iIzlhYTBhNiI+画像読み込み中...</vdGV4dD48L3N2Zz4=" alt="サムネイル画像" />
+                </div>
+                <div class="action-buttons">
+                  <a id="driveLink" href="#" target="_blank" class="secondary-button">Driveで表示</a>
+                </div>
               </div>
-              <div class="screenshot-container">
-                <img id="screenshotImage" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjFmM2Y0Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMThweCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgYWxpZ25tZW50LWJhc2VsaW5lPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZmlsbD0iIzlhYTBhNiI+TG9hZGluZyBJbWFnZS4uLjwvdGV4dD48L3N2Zz4=" alt="Video Screenshot" />
-              </div>
-              <div class="action-buttons">
-                <a id="driveLink" href="#" target="_blank" class="secondary-button">View in Drive</a>
-              </div>
-            </div>
-            
-            <div id="promptTab" class="tab-content">
-              <div class="prompt-container">
+              
+              <!-- 右側：プロンプト -->
+              <div class="result-right">
                 <div class="prompt-card">
-                  <h3>Midjourney Prompt</h3>
+                  <h3>Midjourneyプロンプト</h3>
                   <div class="prompt-text-container">
                     <p id="fullPrompt" class="prompt-text"></p>
                     <button id="copyPrompt" class="icon-button">
@@ -64,11 +62,11 @@
                 
                 <div class="prompt-details">
                   <div class="prompt-section">
-                    <h4>Main Description</h4>
+                    <h4>主要な説明</h4>
                     <p id="mainPrompt"></p>
                   </div>
                   <div class="prompt-section">
-                    <h4>Style & Quality</h4>
+                    <h4>スタイルと品質</h4>
                     <p id="stylePrompt"></p>
                   </div>
                 </div>
@@ -79,15 +77,15 @@
         
         <section id="errorSection" class="error-section hidden">
           <div class="card error-card">
-            <h2>Error</h2>
+            <h2>エラー</h2>
             <p id="errorMessage"></p>
-            <button id="tryAgainButton" class="secondary-button">Try Again</button>
+            <button id="tryAgainButton" class="secondary-button">再試行</button>
           </div>
         </section>
       </main>
       
       <footer>
-        <p>Created with Google Apps Script | YouTube Data API | Midjourney</p>
+        <p>Google Apps Script | YouTube Data API | Gemini 1.5 Flash | Midjourney</p>
       </footer>
     </div>
     
