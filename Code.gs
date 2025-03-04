@@ -93,13 +93,17 @@ function analyzeYouTubeVideo(youtubeUrl) {
     var imageBlob = file.getBlob();
     var base64Image = "data:" + imageBlob.getContentType() + ";base64," + Utilities.base64Encode(imageBlob.getBytes());
     
+    // ドライブとスプレッドシートのリンクを生成
+    var driveLink = "https://drive.google.com/uc?export=view&id=" + fileId;  // 画像を直接表示するURL
+    var spreadsheetLink = "https://docs.google.com/spreadsheets/d/" + spreadsheetId + "/view";  // スプレッドシートを表示するURL
+    
     return {
       title: snippet.title,
       channelTitle: snippet.channelTitle || snippet.channelName,
       screenshot: base64Image,
       prompt: prompt,
-      driveLink: "https://drive.google.com/file/d/" + fileId + "/view",
-      spreadsheetLink: "https://docs.google.com/spreadsheets/d/" + spreadsheetId + "/edit"
+      driveLink: driveLink,
+      spreadsheetLink: spreadsheetLink
     };
   } catch (error) {
     Logger.log("エラー発生: " + error);
@@ -156,7 +160,7 @@ function generatePromptWithGemini(fileId) {
       {
         parts: [
           {
-            text: "この画像を詳細に分析し、Midjourneyで同様の画像を生成するためのプロンプトを作成してください。プロンプトは英語で、主要な被写体、スタイル、色調、照明、構図などの要素を含めてください。"
+            text: "この画像を分析し、Midjourneyで同様の画像を生成するためのプロンプトのみを作成してください。解説は不要です。プロンプトは英語で、主要な被写体、スタイル、色調、照明、構図などの要素を含め、最後に「--aspect 16:9」を追加してください。"
           },
           {
             inline_data: {
@@ -195,7 +199,12 @@ function generatePromptWithGemini(fileId) {
       
       var content = responseData.candidates[0].content;
       if (content && content.parts && content.parts.length > 0) {
-        return content.parts[0].text;
+        var promptText = content.parts[0].text;
+        
+        // プロンプトから解説部分を削除し、必要に応じて--aspect 16:9を追加
+        promptText = cleanupPrompt(promptText);
+        
+        return promptText;
       }
     } else if (responseData.error) {
       // エラーレスポンスの場合
@@ -210,6 +219,54 @@ function generatePromptWithGemini(fileId) {
     Logger.log("Error calling Gemini API: " + error);
     return "Gemini APIの呼び出し中にエラーが発生しました: " + error.toString();
   }
+}
+
+/**
+ * プロンプトをクリーンアップする関数
+ * 解説部分を削除し、アスペクト比を追加する
+ */
+function cleanupPrompt(text) {
+  // 改行で分割して最初の実際のプロンプト部分だけを取得
+  var lines = text.split('\n');
+  var promptOnly = "";
+  
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    // 空行をスキップ
+    if (line === "") continue;
+    
+    // 「プロンプト:」や「Prompt:」で始まる行を見つけたら、その後の部分を使用
+    if (line.match(/^(プロンプト|Prompt|Here's the prompt|Midjourney prompt)[:：]/i)) {
+      // その行以降のテキストを取得
+      promptOnly = lines.slice(i).join(' ').replace(/^(プロンプト|Prompt|Here's the prompt|Midjourney prompt)[:：]\s*/i, '');
+      break;
+    }
+  }
+  
+  // プロンプト部分が見つからなかった場合は元のテキストを使用
+  if (!promptOnly) {
+    promptOnly = text;
+  }
+  
+  // 説明的な文章を削除（「I would」「Here is」などで始まる文）
+  promptOnly = promptOnly.replace(/^(I would|Here is|This is|The prompt|For Midjourney).*?[:：]/i, '');
+  
+  // 末尾の説明文を削除
+  promptOnly = promptOnly.replace(/\.(This prompt|This will|This should|I've included|I have included|The aspect ratio).*$/i, '.');
+  
+  // 引用符を削除
+  promptOnly = promptOnly.replace(/["'"]/g, '');
+  
+  // すでにアスペクト比の指定があれば削除
+  promptOnly = promptOnly.replace(/--ar\s+\d+:\d+/g, '');
+  promptOnly = promptOnly.replace(/--aspect\s+\d+:\d+/g, '');
+  
+  // 末尾に--aspect 16:9を追加（すでに含まれていない場合）
+  if (!promptOnly.includes('--aspect 16:9')) {
+    promptOnly = promptOnly.trim() + ' --aspect 16:9';
+  }
+  
+  return promptOnly.trim();
 }
 
 /**
